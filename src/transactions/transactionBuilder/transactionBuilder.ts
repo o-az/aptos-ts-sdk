@@ -27,6 +27,7 @@ import { normalizeBundle } from "../../utils/normalizeBundle";
 import {
   AccountAuthenticator,
   AccountAuthenticatorEd25519,
+  AccountAuthenticatorNoAccountAuthenticator,
   AccountAuthenticatorSingleKey,
 } from "../authenticator/account";
 import {
@@ -395,16 +396,18 @@ export function generateSignedTransactionForSimulation(args: InputSimulateTransa
       transaction.feePayerAddress,
     );
     let secondaryAccountAuthenticators: Array<AccountAuthenticator> = [];
-    if (secondarySignersPublicKeys) {
-      secondaryAccountAuthenticators = secondarySignersPublicKeys.map((publicKey) =>
-        getAuthenticatorForSimulation(publicKey),
-      );
+    if (transaction.secondarySignerAddresses) {
+      if (secondarySignersPublicKeys) {
+        secondaryAccountAuthenticators = secondarySignersPublicKeys.map((publicKey) =>
+          getAuthenticatorForSimulation(publicKey),
+        );
+      } else {
+        secondaryAccountAuthenticators = new Array(transaction.secondarySignerAddresses.length)
+          .fill(undefined)
+          .map((publicKey) => getAuthenticatorForSimulation(publicKey));
+      }
     }
-    if (!feePayerPublicKey) {
-      throw new Error(
-        "Must provide a feePayerPublicKey argument to generate a signed fee payer transaction for simulation",
-      );
-    }
+
     const feePayerAuthenticator = getAuthenticatorForSimulation(feePayerPublicKey);
 
     const transactionAuthenticator = new TransactionAuthenticatorFeePayer(
@@ -428,15 +431,15 @@ export function generateSignedTransactionForSimulation(args: InputSimulateTransa
 
     let secondaryAccountAuthenticators: Array<AccountAuthenticator> = [];
 
-    if (!secondarySignersPublicKeys) {
-      throw new Error(
-        "Must provide a secondarySignersPublicKeys argument to generate a signed multi agent transaction for simulation",
+    if (secondarySignersPublicKeys) {
+      secondaryAccountAuthenticators = secondarySignersPublicKeys.map((publicKey) =>
+        getAuthenticatorForSimulation(publicKey),
       );
+    } else {
+      secondaryAccountAuthenticators = new Array(transaction.secondarySignerAddresses.length)
+        .fill(undefined)
+        .map((publicKey) => getAuthenticatorForSimulation(publicKey));
     }
-
-    secondaryAccountAuthenticators = secondarySignersPublicKeys.map((publicKey) =>
-      getAuthenticatorForSimulation(publicKey),
-    );
 
     const transactionAuthenticator = new TransactionAuthenticatorMultiAgent(
       accountAuthenticator,
@@ -456,13 +459,18 @@ export function generateSignedTransactionForSimulation(args: InputSimulateTransa
     );
   } else if (accountAuthenticator instanceof AccountAuthenticatorSingleKey) {
     transactionAuthenticator = new TransactionAuthenticatorSingleSender(accountAuthenticator);
+  } else if (accountAuthenticator instanceof AccountAuthenticatorNoAccountAuthenticator) {
+    transactionAuthenticator = new TransactionAuthenticatorSingleSender(accountAuthenticator);
   } else {
     throw new Error("Invalid public key");
   }
   return new SignedTransaction(transaction.rawTransaction, transactionAuthenticator).bcsToBytes();
 }
 
-export function getAuthenticatorForSimulation(publicKey: PublicKey) {
+export function getAuthenticatorForSimulation(publicKey?: PublicKey) {
+  if (!publicKey) {
+    return new AccountAuthenticatorNoAccountAuthenticator();
+  }
   // Wrap the public key types below with AnyPublicKey as they are only support through single sender.
   // Learn more about AnyPublicKey here - https://github.com/aptos-foundation/AIPs/blob/main/aips/aip-55.md
   const convertToAnyPublicKey =

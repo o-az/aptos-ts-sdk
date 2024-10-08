@@ -395,20 +395,11 @@ export function generateSignedTransactionForSimulation(args: InputSimulateTransa
       transaction.secondarySignerAddresses ?? [],
       transaction.feePayerAddress,
     );
-    let secondaryAccountAuthenticators: Array<AccountAuthenticator> = [];
-    if (transaction.secondarySignerAddresses) {
-      if (secondarySignersPublicKeys) {
-        secondaryAccountAuthenticators = secondarySignersPublicKeys.map((publicKey) =>
-          getAuthenticatorForSimulation(publicKey),
-        );
-      } else {
-        secondaryAccountAuthenticators = new Array(transaction.secondarySignerAddresses.length)
-          .fill(undefined)
-          .map((publicKey) => getAuthenticatorForSimulation(publicKey));
-      }
-    }
-
-    const feePayerAuthenticator = getAuthenticatorForSimulation(feePayerPublicKey);
+    const secondaryAccountAuthenticators: Array<AccountAuthenticator> = secondaryAccountAuthenticatorsForSimulation(
+      secondarySignersPublicKeys,
+      transaction.secondarySignerAddresses?.length ?? 0,
+    );
+    const feePayerAuthenticator = getAuthenticatorForSimulation(feePayerPublicKey!);
 
     const transactionAuthenticator = new TransactionAuthenticatorFeePayer(
       accountAuthenticator,
@@ -429,17 +420,10 @@ export function generateSignedTransactionForSimulation(args: InputSimulateTransa
       transaction.secondarySignerAddresses,
     );
 
-    let secondaryAccountAuthenticators: Array<AccountAuthenticator> = [];
-
-    if (secondarySignersPublicKeys) {
-      secondaryAccountAuthenticators = secondarySignersPublicKeys.map((publicKey) =>
-        getAuthenticatorForSimulation(publicKey),
-      );
-    } else {
-      secondaryAccountAuthenticators = new Array(transaction.secondarySignerAddresses.length)
-        .fill(undefined)
-        .map((publicKey) => getAuthenticatorForSimulation(publicKey));
-    }
+    const secondaryAccountAuthenticators: Array<AccountAuthenticator> = secondaryAccountAuthenticatorsForSimulation(
+      secondarySignersPublicKeys,
+      transaction.secondarySignerAddresses.length,
+    );
 
     const transactionAuthenticator = new TransactionAuthenticatorMultiAgent(
       accountAuthenticator,
@@ -465,6 +449,16 @@ export function generateSignedTransactionForSimulation(args: InputSimulateTransa
     throw new Error("Invalid public key");
   }
   return new SignedTransaction(transaction.rawTransaction, transactionAuthenticator).bcsToBytes();
+}
+
+function secondaryAccountAuthenticatorsForSimulation(
+  secondarySignersPublicKeys: Array<PublicKey | undefined> | undefined,
+  numSecondarySigners: number,
+): Array<AccountAuthenticatorNoAccountAuthenticator | AccountAuthenticatorEd25519 | AccountAuthenticatorSingleKey> {
+  if (secondarySignersPublicKeys) {
+    return secondarySignersPublicKeys.map((publicKey) => getAuthenticatorForSimulation(publicKey));
+  }
+  return new Array(numSecondarySigners).fill(undefined).map((publicKey) => getAuthenticatorForSimulation(publicKey));
 }
 
 export function getAuthenticatorForSimulation(publicKey?: PublicKey) {

@@ -142,8 +142,7 @@ const createMultiSigTransferTransaction = async () => {
     aptosConfig: config,
   });
 
-  // The simulation enhancement feature is not enabled on the devnet yet.
-  const isSimulationEnhancementFeatureEnabled = false;
+  const isSimulationEnhancementFeatureEnabled = true;
   if (!isSimulationEnhancementFeatureEnabled) {
     // Simulate the transfer transaction to make sure it passes
     const transactionToSimulate = await generateRawTransaction({
